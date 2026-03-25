@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"time"
 
-	"baconkit/scans"
 	"charm.land/bubbles/v2/table"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -226,7 +225,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "r":
 				m.refresh()
 			case "1", "2", "3", "4":
-				col := int(msg.String()[0]-'1')
+				col := int(msg.String()[0] - '1')
 				if col == m.sortCol {
 					m.sortAsc = !m.sortAsc
 				} else {
@@ -288,7 +287,7 @@ func (m model) View() tea.View {
 		)
 	}
 
-	tableOuterW := m.table.Width() + 2    // lipgloss Width(n) = outer screen width, inner = n-2
+	tableOuterW := m.table.Width() + 2       // lipgloss Width(n) = outer screen width, inner = n-2
 	rightPanelW := m.width - tableOuterW - 1 // fill remaining space after left panel + gap
 	if rightPanelW < 3 {
 		rightPanelW = 3
@@ -302,10 +301,6 @@ func (m model) View() tea.View {
 
 func main() {
 	initDebugLog()
-	if len(os.Args) > 1 && os.Args[1] == "deb" {
-		scans.Deb()
-		return
-	}
 
 	fullRows := loadProcesses()
 	t := table.New(table.WithFocused(true))
