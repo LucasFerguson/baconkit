@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 
 	"baconkit/scans"
@@ -10,15 +11,118 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
+var debugLog *log.Logger
+
+func initDebugLog() {
+	f, err := os.OpenFile("tmp/baconkit.log", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	if err == nil {
+		debugLog = log.New(f, "", log.Ltime)
+	}
+}
+
 var baseStyle = lipgloss.NewStyle().
 	BorderStyle(lipgloss.NormalBorder()).
 	BorderForeground(lipgloss.Color("240"))
+
+const rightPanelWidth = 48 // 46 content + 2 border chars
 
 type model struct {
 	table           table.Model
 	fullRows        []table.Row
 	activeView      string
 	selectedProcess table.Row
+	width           int
+	height          int
+}
+
+func (m *model) resizeTable() {
+	if m.width == 0 || m.height == 0 {
+		return
+	}
+
+	tableW := m.width - rightPanelWidth - 1 - 2 // gap + left+right border
+	tableH := m.height - 6
+	if tableH < 1 {
+		tableH = 1
+	}
+	if tableW < 2 {
+		return
+	}
+
+	// Each column renders as col.Width+2 on screen (Padding(0,1) on both Header and Cell).
+	// Subtract that overhead before allocating column content widths.
+	const (
+		rankW       = 8
+		countryW    = 16
+		populationW = 16
+		minNameW    = 10
+		maxNameW    = 30
+		cellPad     = 2 // per-column screen overhead
+	)
+	var cols []table.Column
+	var rows []table.Row
+	var actualTableW int
+	switch {
+	case tableW >= rankW+minNameW+countryW+populationW+4*cellPad:
+		nameW := min(tableW-4*cellPad-rankW-countryW-populationW, maxNameW)
+		actualTableW = rankW + nameW + countryW + populationW + 4*cellPad
+		cols = []table.Column{
+			{Title: "Rank", Width: rankW},
+			{Title: "Name", Width: nameW},
+			{Title: "Country", Width: countryW},
+			{Title: "Population", Width: populationW},
+		}
+		for _, r := range m.fullRows {
+			rows = append(rows, table.Row{r[0], r[1], r[2], r[3]})
+		}
+	case tableW >= rankW+minNameW+countryW+3*cellPad:
+		nameW := min(tableW-3*cellPad-rankW-countryW, maxNameW)
+		actualTableW = rankW + nameW + countryW + 3*cellPad
+		cols = []table.Column{
+			{Title: "Rank", Width: rankW},
+			{Title: "Name", Width: nameW},
+			{Title: "Country", Width: countryW},
+		}
+		for _, r := range m.fullRows {
+			rows = append(rows, table.Row{r[0], r[1], r[2]})
+		}
+	case tableW >= rankW+minNameW+2*cellPad:
+		nameW := min(tableW-2*cellPad-rankW, maxNameW)
+		actualTableW = rankW + nameW + 2*cellPad
+		cols = []table.Column{
+			{Title: "Rank", Width: rankW},
+			{Title: "Name", Width: nameW},
+		}
+		for _, r := range m.fullRows {
+			rows = append(rows, table.Row{r[0], r[1]})
+		}
+	default:
+		nameW := tableW - cellPad
+		if nameW < 1 {
+			nameW = 1
+		}
+		actualTableW = nameW + cellPad
+		cols = []table.Column{
+			{Title: "Name", Width: nameW},
+		}
+		for _, r := range m.fullRows {
+			rows = append(rows, table.Row{r[1]})
+		}
+	}
+
+	if debugLog != nil {
+		widths := make([]int, len(cols))
+		for i, c := range cols {
+			widths[i] = c.Width
+		}
+		debugLog.Printf("window=%dx%d tableW=%d actualTableW=%d tableH=%d cols=%d widths=%v", m.width, m.height, tableW, actualTableW, tableH, len(cols), widths)
+	}
+
+	m.table.SetRows([]table.Row{}) // clear first to avoid col/row count mismatch
+	m.table.SetColumns(cols)
+	m.table.SetRows(rows)
+	m.table.SetWidth(actualTableW)
+	m.table.SetHeight(tableH)
 }
 
 func (m model) Init() tea.Cmd { return nil }
@@ -65,9 +169,21 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.openSelectedProcess()
 			}
 		}
-	case tea.MouseClickMsg:
-		if m.activeView == "list" && msg.Mouse().Button == tea.MouseLeft {
-			m.openSelectedProcess()
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+		m.resizeTable()
+		if debugLog != nil {
+			tableOuterW := m.table.Width() + 2
+			rightContentWidth := m.width - tableOuterW - 1 - 2
+			if rightContentWidth < 1 {
+				rightContentWidth = 1
+			}
+			left := baseStyle.Width(m.table.Width()).Render(m.table.View() + "\n  " + m.table.HelpView())
+			right := baseStyle.Width(rightContentWidth).Render("(right panel)")
+			debugLog.Printf("full render (window=%dx%d):\n%s",
+				m.width, m.height,
+				lipgloss.JoinHorizontal(lipgloss.Top, left, " ", right))
 		}
 	}
 	if m.activeView == "list" {
@@ -86,8 +202,8 @@ func (m model) View() tea.View {
 			m.selectedProcess[2],
 			m.selectedProcess[3],
 		)
-		v := tea.NewView(baseStyle.Render(body) + "\n")
-		v.MouseMode = tea.MouseModeCellMotion
+		v := tea.NewView(baseStyle.Width(m.width).Height(m.height).Render(body) + "\n")
+		v.AltScreen = true
 		return v
 	}
 
@@ -102,37 +218,27 @@ func (m model) View() tea.View {
 		)
 	}
 
-	left := baseStyle.Render(m.table.View() + "\n  " + m.table.HelpView())
-	right := baseStyle.Width(46).Render(rightBody)
+	tableOuterW := m.table.Width() + 2    // lipgloss Width(n) = outer screen width, inner = n-2
+	rightPanelW := m.width - tableOuterW - 1 // fill remaining space after left panel + gap
+	if rightPanelW < 3 {
+		rightPanelW = 3
+	}
+	left := baseStyle.Width(tableOuterW).Render(m.table.View() + "\n  " + m.table.HelpView())
+	right := baseStyle.Width(rightPanelW).Render(rightBody)
 	v := tea.NewView(lipgloss.JoinHorizontal(lipgloss.Top, left, " ", right) + "\n")
-	v.MouseMode = tea.MouseModeCellMotion
+	v.AltScreen = true
 	return v
 }
 
 func main() {
+	initDebugLog()
 	if len(os.Args) > 1 && os.Args[1] == "deb" {
 		scans.Deb()
 		return
 	}
 
-	columns := []table.Column{
-		{Title: "Rank", Width: 6},
-		{Title: "Task", Width: 24},
-	}
-
 	fullRows := sampleRows()
-	rows := make([]table.Row, 0, len(fullRows))
-	for _, row := range fullRows {
-		rows = append(rows, table.Row{row[0], row[1]})
-	}
-
-	t := table.New(
-		table.WithColumns(columns),
-		table.WithRows(rows),
-		table.WithFocused(true),
-		table.WithHeight(30),
-		table.WithWidth(32),
-	)
+	t := table.New(table.WithFocused(true))
 
 	s := table.DefaultStyles()
 	s.Header = s.Header.
