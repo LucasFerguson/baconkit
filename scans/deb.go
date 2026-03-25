@@ -1,4 +1,4 @@
-package deb
+package scans
 
 import (
 	"bytes"
@@ -22,7 +22,7 @@ func errhandle(e error) bool {
 	return false
 }
 
-func deb() {
+func Deb() {
 	fmt.Println("Find tracked...")
 	folder, err := os.Open(DPKG_INFO)
 	if errhandle(err) {
