@@ -4,12 +4,23 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"sort"
+	"strconv"
+	"time"
 
 	"baconkit/scans"
 	"charm.land/bubbles/v2/table"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 )
+
+type refreshMsg struct{}
+
+func scheduleRefresh() tea.Cmd {
+	return tea.Tick(3*time.Second, func(time.Time) tea.Msg {
+		return refreshMsg{}
+	})
+}
 
 var debugLog *log.Logger
 
@@ -33,6 +44,42 @@ type model struct {
 	selectedProcess table.Row
 	width           int
 	height          int
+	sortCol         int
+	sortAsc         bool
+}
+
+// colNames maps column index to display title (without sort indicator).
+var colNames = []string{"PID", "Name", "User", "State"}
+
+func (m *model) sorted() []table.Row {
+	rows := make([]table.Row, len(m.fullRows))
+	copy(rows, m.fullRows)
+	sort.SliceStable(rows, func(i, j int) bool {
+		a, b := rows[i][m.sortCol], rows[j][m.sortCol]
+		less := a < b
+		if m.sortCol == 0 { // PID: numeric
+			ai, _ := strconv.Atoi(a)
+			bi, _ := strconv.Atoi(b)
+			less = ai < bi
+		}
+		if m.sortAsc {
+			return less
+		}
+		return !less
+	})
+	return rows
+}
+
+func (m *model) colTitle(idx int) string {
+	title := colNames[idx]
+	if idx == m.sortCol {
+		if m.sortAsc {
+			title += " ▲"
+		} else {
+			title += " ▼"
+		}
+	}
+	return title
 }
 
 func (m *model) resizeTable() {
@@ -52,48 +99,49 @@ func (m *model) resizeTable() {
 	// Each column renders as col.Width+2 on screen (Padding(0,1) on both Header and Cell).
 	// Subtract that overhead before allocating column content widths.
 	const (
-		rankW       = 8
-		countryW    = 16
-		populationW = 16
-		minNameW    = 10
-		maxNameW    = 30
-		cellPad     = 2 // per-column screen overhead
+		pidW     = 8
+		userW    = 14
+		stateW   = 16
+		minNameW = 10
+		maxNameW = 30
+		cellPad  = 2 // per-column screen overhead
 	)
+	sorted := m.sorted()
 	var cols []table.Column
 	var rows []table.Row
 	var actualTableW int
 	switch {
-	case tableW >= rankW+minNameW+countryW+populationW+4*cellPad:
-		nameW := min(tableW-4*cellPad-rankW-countryW-populationW, maxNameW)
-		actualTableW = rankW + nameW + countryW + populationW + 4*cellPad
+	case tableW >= pidW+minNameW+userW+stateW+4*cellPad:
+		nameW := min(tableW-4*cellPad-pidW-userW-stateW, maxNameW)
+		actualTableW = pidW + nameW + userW + stateW + 4*cellPad
 		cols = []table.Column{
-			{Title: "Rank", Width: rankW},
-			{Title: "Name", Width: nameW},
-			{Title: "Country", Width: countryW},
-			{Title: "Population", Width: populationW},
+			{Title: m.colTitle(0), Width: pidW},
+			{Title: m.colTitle(1), Width: nameW},
+			{Title: m.colTitle(2), Width: userW},
+			{Title: m.colTitle(3), Width: stateW},
 		}
-		for _, r := range m.fullRows {
+		for _, r := range sorted {
 			rows = append(rows, table.Row{r[0], r[1], r[2], r[3]})
 		}
-	case tableW >= rankW+minNameW+countryW+3*cellPad:
-		nameW := min(tableW-3*cellPad-rankW-countryW, maxNameW)
-		actualTableW = rankW + nameW + countryW + 3*cellPad
+	case tableW >= pidW+minNameW+userW+3*cellPad:
+		nameW := min(tableW-3*cellPad-pidW-userW, maxNameW)
+		actualTableW = pidW + nameW + userW + 3*cellPad
 		cols = []table.Column{
-			{Title: "Rank", Width: rankW},
-			{Title: "Name", Width: nameW},
-			{Title: "Country", Width: countryW},
+			{Title: m.colTitle(0), Width: pidW},
+			{Title: m.colTitle(1), Width: nameW},
+			{Title: m.colTitle(2), Width: userW},
 		}
-		for _, r := range m.fullRows {
+		for _, r := range sorted {
 			rows = append(rows, table.Row{r[0], r[1], r[2]})
 		}
-	case tableW >= rankW+minNameW+2*cellPad:
-		nameW := min(tableW-2*cellPad-rankW, maxNameW)
-		actualTableW = rankW + nameW + 2*cellPad
+	case tableW >= pidW+minNameW+2*cellPad:
+		nameW := min(tableW-2*cellPad-pidW, maxNameW)
+		actualTableW = pidW + nameW + 2*cellPad
 		cols = []table.Column{
-			{Title: "Rank", Width: rankW},
-			{Title: "Name", Width: nameW},
+			{Title: m.colTitle(0), Width: pidW},
+			{Title: m.colTitle(1), Width: nameW},
 		}
-		for _, r := range m.fullRows {
+		for _, r := range sorted {
 			rows = append(rows, table.Row{r[0], r[1]})
 		}
 	default:
@@ -103,9 +151,9 @@ func (m *model) resizeTable() {
 		}
 		actualTableW = nameW + cellPad
 		cols = []table.Column{
-			{Title: "Name", Width: nameW},
+			{Title: m.colTitle(1), Width: nameW},
 		}
-		for _, r := range m.fullRows {
+		for _, r := range sorted {
 			rows = append(rows, table.Row{r[1]})
 		}
 	}
@@ -125,7 +173,7 @@ func (m *model) resizeTable() {
 	m.table.SetHeight(tableH)
 }
 
-func (m model) Init() tea.Cmd { return nil }
+func (m model) Init() tea.Cmd { return scheduleRefresh() }
 
 func (m *model) syncSelectedProcess() {
 	idx := m.table.Cursor()
@@ -133,6 +181,14 @@ func (m *model) syncSelectedProcess() {
 		return
 	}
 	m.selectedProcess = m.fullRows[idx]
+}
+
+func (m *model) refresh() {
+	cursor := m.table.Cursor()
+	m.fullRows = loadProcesses()
+	m.resizeTable()
+	m.table.SetCursor(cursor)
+	m.syncSelectedProcess()
 }
 
 func (m *model) openSelectedProcess() {
@@ -167,8 +223,22 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, tea.Quit
 			case "enter":
 				m.openSelectedProcess()
+			case "r":
+				m.refresh()
+			case "1", "2", "3", "4":
+				col := int(msg.String()[0]-'1')
+				if col == m.sortCol {
+					m.sortAsc = !m.sortAsc
+				} else {
+					m.sortCol = col
+					m.sortAsc = true
+				}
+				m.resizeTable()
 			}
 		}
+	case refreshMsg:
+		m.refresh()
+		return m, scheduleRefresh()
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
@@ -196,7 +266,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m model) View() tea.View {
 	if m.activeView == "process" && len(m.selectedProcess) > 0 {
 		body := fmt.Sprintf(
-			"Process Detail\n\nRank: %s\nName: %s\nCountry: %s\nPopulation: %s\n\nPress b or esc to go back",
+			"Process Detail\n\nPID: %s\nName: %s\nUser: %s\nState: %s\n\nPress b or esc to go back",
 			m.selectedProcess[0],
 			m.selectedProcess[1],
 			m.selectedProcess[2],
@@ -210,7 +280,7 @@ func (m model) View() tea.View {
 	rightBody := "No row selected"
 	if len(m.selectedProcess) > 0 {
 		rightBody = fmt.Sprintf(
-			"Selected Process / Row\n\nRank: %s\nName: %s\nCountry: %s\nPopulation: %s\n\nPress enter to open full view",
+			"Selected Process\n\nPID: %s\nName: %s\nUser: %s\nState: %s\n\nPress enter to open full view",
 			m.selectedProcess[0],
 			m.selectedProcess[1],
 			m.selectedProcess[2],
@@ -237,7 +307,7 @@ func main() {
 		return
 	}
 
-	fullRows := sampleRows()
+	fullRows := loadProcesses()
 	t := table.New(table.WithFocused(true))
 
 	s := table.DefaultStyles()
@@ -252,7 +322,7 @@ func main() {
 		Bold(false)
 	t.SetStyles(s)
 
-	m := model{table: t, fullRows: fullRows, activeView: "list"}
+	m := model{table: t, fullRows: fullRows, activeView: "list", sortCol: 0, sortAsc: true}
 	m.syncSelectedProcess()
 	if _, err := tea.NewProgram(m).Run(); err != nil {
 		fmt.Println("Error running program:", err)
