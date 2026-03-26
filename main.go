@@ -193,6 +193,7 @@ func (m *model) syncSelectedProcess() {
 func (m *model) refresh() {
 	cursor := m.table.Cursor()
 	m.fullRows = scanToRows(loadProcesses())
+	// m.fullRows = scanToRows(ps_scan())
 	m.resizeTable()
 	m.table.SetCursor(cursor)
 	m.syncSelectedProcess()
@@ -311,6 +312,7 @@ func main() {
 	initDebugLog()
 
 	fullRows := scanToRows(loadProcesses())
+	// fullRows := scanToRows(ps_scan())
 	t := table.New(table.WithFocused(true))
 
 	s := table.DefaultStyles()

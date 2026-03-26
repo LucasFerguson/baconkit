@@ -52,6 +52,6 @@ func ps_scan() map[int]map[string]string {
 		}
 	}
 	// Return ps output
-	fmt.Println(procmap)
+	// fmt.Println(procmap)
 	return procmap
 }
