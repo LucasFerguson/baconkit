@@ -1,7 +1,9 @@
 package util
 
 import (
+	"bytes"
 	"fmt"
+	"os/exec"
 	"strings"
 )
 
@@ -20,4 +22,13 @@ func TrimSplit(str string, delim string) []string {
 
 func TrimSplitLines(str string) []string {
 	return TrimSplit(str, "\n")
+}
+
+func Cmd(command string, args ...string) (string, string, error) {
+	cmd := exec.Command(command, args...)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	return stdout.String(), stderr.String(), err
 }

@@ -182,10 +182,12 @@ func makeRows() []table.Row {
 	for _, pid := range pidlst {
 		pidAttrs := tools.GetBasicStatus(pid)
 		rows = append(rows, table.Row{strconv.Itoa(pid), pidAttrs["Name"], pidAttrs["User"], pidAttrs["State"]})
+		// fmt.Println(pid, ":", tools.CheckWorldWriteableDir(pid))
 	}
 	return rows
 }
 
+// Returns the initial command for the application to run
 func (m model) Init() tea.Cmd { return scheduleRefresh() }
 
 func (m *model) syncSelectedProcess() {
@@ -213,6 +215,7 @@ func (m *model) openSelectedProcess() {
 	m.activeView = "process"
 }
 
+// Handles incoming events and updates the model accordingly
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
@@ -277,7 +280,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
+// Renders the UI based on the data in the model
 func (m model) View() tea.View {
+	// If we're currently full-screened on a process:
 	if m.activeView == "process" && len(m.selectedProcess) > 0 {
 		body := fmt.Sprintf(
 			"Process Detail\n\nPID: %s\nName: %s\nUser: %s\nState: %s\n\nPress b or esc to go back",
@@ -291,8 +296,9 @@ func (m model) View() tea.View {
 		return v
 	}
 
+	// Otherwise, if we're going through the list of processes:
 	rightBody := "No row selected"
-	if len(m.selectedProcess) > 0 {
+	if len(m.selectedProcess) > 0 { // If our list cursor is on a process, show what the right pane shows
 		rightBody = fmt.Sprintf(
 			"Selected Process\n\nPID: %s\nName: %s\nUser: %s\nState: %s\n\nPress enter to open full view",
 			m.selectedProcess[0],
@@ -316,9 +322,7 @@ func (m model) View() tea.View {
 
 func main() {
 	initDebugLog()
-	// fmt.Println(scans.PsBruteScan())
 	fullRows := makeRows()
-	// fullRows := scanToRows(ps_scan())
 	t := table.New(table.WithFocused(true))
 
 	s := table.DefaultStyles()

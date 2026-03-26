@@ -8,46 +8,54 @@ import (
 	"strings"
 )
 
-func GetBasicStatus(pid int) map[string]string {
+func getExe(pid int) string {
+	exelink := "/proc/" + strconv.Itoa(pid) + "/exe"
+	exefile, err := filepath.EvalSymlinks(exelink)
+	if util.ErrHandle(err) {
+		return ""
+	}
+	return exefile
+}
+
+func getCwd(pid int) string {
+	cwdlink := "/proc/" + strconv.Itoa(pid) + "/cwd"
+	cwdfile, err := filepath.EvalSymlinks(cwdlink)
+	if util.ErrHandle(err) {
+		return ""
+	}
+	return cwdfile
+}
+
+func getStatusMap(pid int) map[string]string {
 	statusBytes, err := os.ReadFile(filepath.Join("/proc", strconv.Itoa(pid), "status"))
 	if util.ErrHandle(err) {
 		return nil
 	}
+	statusLines := util.TrimSplitLines(string(statusBytes))
+	statusMap := make(map[string]string)
+	for _, line := range statusLines {
+		parts := strings.SplitN(line, ":", 2)
+		statusMap[strings.TrimSpace(parts[0])] = strings.TrimSpace(parts[1])
+	}
+	return statusMap
+}
+
+func GetBasicStatus(pid int) map[string]string {
 	users := loadUsers()
-	// statusVals := util.TrimSplitLines(string(statusBytes))
-	name, uid, state := parseStatus(string(statusBytes))
-	user := uid
-	if u, ok := users[uid]; ok {
+	statusMap := getStatusMap(pid)
+	if statusMap == nil {
+		return nil
+	}
+	var user string
+	if u, ok := users[strings.Fields(statusMap["Uid"])[0]]; ok {
 		user = u
 	}
 
 	return map[string]string{
-		"Name":  name,
+		"Name":  statusMap["Name"],
 		"User":  user,
-		"State": state,
+		"State": statusMap["State"],
 	}
-}
-
-func parseStatus(content string) (name, uid, state string) {
-	for _, line := range strings.Split(content, "\n") {
-		parts := strings.SplitN(line, ":", 2)
-		if len(parts) != 2 {
-			continue
-		}
-		val := strings.TrimSpace(parts[1])
-		switch strings.TrimSpace(parts[0]) {
-		case "Name":
-			name = val
-		case "State":
-			state = val
-		case "Uid":
-			fields := strings.Fields(val)
-			if len(fields) > 0 {
-				uid = fields[0]
-			}
-		}
-	}
-	return
 }
 
 func loadUsers() map[string]string {
@@ -63,4 +71,24 @@ func loadUsers() map[string]string {
 		}
 	}
 	return users
+}
+
+func IsPtraced(pid int) map[string]string {
+	statusMap := getStatusMap(pid)
+	if statusMap == nil {
+		return nil
+	}
+	if statusMap["TracerPid"] == "0" {
+		return map[string]string{"PTracer": "None"}
+	} else {
+		tracerPid, err := strconv.Atoi(statusMap["TracerPid"])
+		if util.ErrHandle(err) {
+			return map[string]string{"PTracer": statusMap["TracerPid"]}
+		}
+		tracerStatusMap := getStatusMap(tracerPid)
+		if tracerStatusMap == nil {
+			return map[string]string{"PTracer": statusMap["TracerPid"]}
+		}
+		return map[string]string{"PTracer": tracerStatusMap["Name"]}
+	}
 }
