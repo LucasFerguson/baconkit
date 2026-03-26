@@ -1,4 +1,4 @@
-package main
+package scans
 
 import (
 	"bytes"
@@ -8,14 +8,14 @@ import (
 	"strings"
 )
 
-func errhandle(e error) bool {
-	if e != nil {
-		fmt.Println("ERR", e)
-		// os.Exit(0)
-		return true
-	}
-	return false
-}
+// func errhandle(e error) bool {
+// 	if e != nil {
+// 		fmt.Println("ERR", e)
+// 		// os.Exit(0)
+// 		return true
+// 	}
+// 	return false
+// }
 
 func cmd(command string, args ...string) (string, string, error) {
 	cmd := exec.Command(command, args...)
@@ -26,7 +26,7 @@ func cmd(command string, args ...string) (string, string, error) {
 	return stdout.String(), stderr.String(), err
 }
 
-func ps_scan() map[int]map[string]string {
+func PsScan() map[int]map[string]string {
 	// Run ps
 	ps_out, ps_err, err := cmd("ps", "-eo", "user,pid,exe,stat")
 	if errhandle(err) {

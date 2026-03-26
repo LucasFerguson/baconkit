@@ -1,6 +1,7 @@
 package main
 
 import (
+	"baconkit/scans"
 	"fmt"
 	"log"
 	"os"
@@ -192,7 +193,7 @@ func (m *model) syncSelectedProcess() {
 
 func (m *model) refresh() {
 	cursor := m.table.Cursor()
-	m.fullRows = scanToRows(loadProcesses())
+	m.fullRows = scanToRows(scans.LoadProcesses())
 	// m.fullRows = scanToRows(ps_scan())
 	m.resizeTable()
 	m.table.SetCursor(cursor)
@@ -310,8 +311,8 @@ func (m model) View() tea.View {
 
 func main() {
 	initDebugLog()
-
-	fullRows := scanToRows(loadProcesses())
+	// fmt.Println(scans.PsBruteScan())
+	fullRows := scanToRows(scans.LoadProcesses())
 	// fullRows := scanToRows(ps_scan())
 	t := table.New(table.WithFocused(true))
 

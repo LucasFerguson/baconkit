@@ -1,7 +1,9 @@
-package main
+package scans
 
 import (
 	"fmt"
+	"os"
+	"strconv"
 )
 
 func errhandle(e error) bool {
@@ -13,8 +15,32 @@ func errhandle(e error) bool {
 	return false
 }
 
-func psbrute_scan() map[int]map[string]string {
+func PsBruteScan() []int {
 	// Call processes.go's loadProcesses to get listed /proc processes
-	proc_files := loadProcesses()
+	proc_files := LoadProcesses()
 
+	// Get max pid
+	maxpid := 1
+	for pid := range proc_files {
+		if pid > maxpid {
+			maxpid = pid
+		}
+	}
+
+	pidlst := make([]int, 0, len(proc_files))
+
+	for pid := 1; pid < maxpid; pid++ {
+		// if slices.Contains(proc_files, pid){
+		if _, exists := proc_files[pid]; exists {
+			continue
+		}
+		statfile := "/proc/" + strconv.Itoa(pid) + "/stat"
+		// Try reading stat file
+		_, err := os.ReadFile(statfile)
+		if err == nil {
+			// If works, append PID to PID list
+			pidlst = append(pidlst, pid)
+		}
+	}
+	return pidlst
 }
