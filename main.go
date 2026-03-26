@@ -172,6 +172,14 @@ func (m *model) resizeTable() {
 	m.table.SetHeight(tableH)
 }
 
+func scanToRows(scanOut map[int]map[string]string) []table.Row {
+	var rows []table.Row
+	for pid, procDetails := range scanOut {
+		rows = append(rows, table.Row{strconv.Itoa(pid), procDetails["Name"], procDetails["User"], procDetails["State"]})
+	}
+	return rows
+}
+
 func (m model) Init() tea.Cmd { return scheduleRefresh() }
 
 func (m *model) syncSelectedProcess() {
@@ -184,7 +192,7 @@ func (m *model) syncSelectedProcess() {
 
 func (m *model) refresh() {
 	cursor := m.table.Cursor()
-	m.fullRows = loadProcesses()
+	m.fullRows = scanToRows(loadProcesses())
 	m.resizeTable()
 	m.table.SetCursor(cursor)
 	m.syncSelectedProcess()
@@ -302,7 +310,7 @@ func (m model) View() tea.View {
 func main() {
 	initDebugLog()
 
-	fullRows := loadProcesses()
+	fullRows := scanToRows(loadProcesses())
 	t := table.New(table.WithFocused(true))
 
 	s := table.DefaultStyles()

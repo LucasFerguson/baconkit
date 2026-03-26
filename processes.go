@@ -5,11 +5,43 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-
-	"charm.land/bubbles/v2/table"
 )
 
-func loadProcesses() []table.Row {
+// func loadProcesses() []table.Row {
+// 	entries, err := os.ReadDir("/proc")
+// 	if err != nil {
+// 		return nil
+// 	}
+
+// 	users := loadUsers()
+
+// 	var rows []table.Row
+// 	for _, entry := range entries {
+// 		if !entry.IsDir() {
+// 			continue
+// 		}
+// 		if _, err := strconv.Atoi(entry.Name()); err != nil {
+// 			continue
+// 		}
+
+// 		pid := entry.Name()
+// 		content, err := os.ReadFile(filepath.Join("/proc", pid, "status"))
+// 		if err != nil {
+// 			continue
+// 		}
+
+// 		name, uid, state := parseStatus(string(content))
+// 		user := uid
+// 		if u, ok := users[uid]; ok {
+// 			user = u
+// 		}
+
+// 		rows = append(rows, table.Row{pid, name, user, state})
+// 	}
+// 	return rows
+// }
+
+func loadProcesses() map[int]map[string]string {
 	entries, err := os.ReadDir("/proc")
 	if err != nil {
 		return nil
@@ -17,12 +49,14 @@ func loadProcesses() []table.Row {
 
 	users := loadUsers()
 
-	var rows []table.Row
+	// var rows []table.Row
+	procmap := make(map[int]map[string]string)
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			continue
 		}
-		if _, err := strconv.Atoi(entry.Name()); err != nil {
+		pid_int, err := strconv.Atoi(entry.Name())
+		if err != nil {
 			continue
 		}
 
@@ -38,9 +72,13 @@ func loadProcesses() []table.Row {
 			user = u
 		}
 
-		rows = append(rows, table.Row{pid, name, user, state})
+		procmap[pid_int] = map[string]string{
+			"Name":  name,
+			"User":  user,
+			"State": state,
+		}
 	}
-	return rows
+	return procmap
 }
 
 func parseStatus(content string) (name, uid, state string) {
