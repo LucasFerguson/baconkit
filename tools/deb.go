@@ -1,6 +1,7 @@
-package scans
+package tools
 
 import (
+	"baconkit/util"
 	"bytes"
 	"fmt"
 	"io/fs"
@@ -13,23 +14,14 @@ import (
 
 var DPKG_INFO = "/var/lib/dpkg/info"
 
-func errhandle(e error) bool {
-	if e != nil {
-		fmt.Println("ERR", e)
-		// os.Exit(0)
-		return true
-	}
-	return false
-}
-
 func Deb() {
 	fmt.Println("Find tracked...")
 	folder, err := os.Open(DPKG_INFO)
-	if errhandle(err) {
+	if util.ErrHandle(err) {
 		return
 	}
 	files, err := folder.Readdir(0)
-	if errhandle(err) {
+	if util.ErrHandle(err) {
 		return
 	}
 
@@ -46,7 +38,7 @@ func Deb() {
 
 	for _, file := range md5sum_files {
 		cntnt, err := os.ReadFile(DPKG_INFO + "/" + file.Name())
-		if errhandle(err) {
+		if util.ErrHandle(err) {
 			return
 		}
 		// fmt.Println(file.Name() + ":")
@@ -54,7 +46,7 @@ func Deb() {
 		for _, line := range lines {
 			fpath := "/" + strings.TrimSpace(strings.Join(strings.Split(line, " ")[1:], " "))
 			abs_path, err := filepath.EvalSymlinks(string(fpath))
-			if !errhandle(err) {
+			if !util.ErrHandle(err) {
 				tracked_files = append(tracked_files, abs_path)
 			}
 
@@ -64,7 +56,7 @@ func Deb() {
 	elfs := make([]string, 0, len(md5sum_files))
 
 	filepath.WalkDir("/", func(path string, d fs.DirEntry, err error) error {
-		if errhandle(err) {
+		if util.ErrHandle(err) {
 			return nil
 		}
 
@@ -73,7 +65,7 @@ func Deb() {
 		}
 
 		info, err := os.Lstat(path)
-		if errhandle(err) {
+		if util.ErrHandle(err) {
 			return nil
 		}
 		mode := info.Mode()
@@ -81,19 +73,19 @@ func Deb() {
 
 		if mode&nonRegFile == 0 && mode&0111 != 0 {
 			absPath, err := filepath.EvalSymlinks(path)
-			if !errhandle(err) && absPath != path {
+			if !util.ErrHandle(err) && absPath != path {
 				return nil
 			}
 			// filecnt, err := os.ReadFile(path)
 			opened_file, err := os.Open(path)
-			if errhandle(err) {
+			if util.ErrHandle(err) {
 				return nil
 			}
 			defer opened_file.Close()
 
 			buf := make([]byte, 4)
 			_, err = opened_file.Read(buf)
-			if errhandle(err) {
+			if util.ErrHandle(err) {
 				return nil
 			}
 			if bytes.Equal(buf, []byte{127, 69, 76, 70}) {

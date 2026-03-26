@@ -3,6 +3,7 @@ package scans
 import (
 	"fmt"
 	"os"
+	"slices"
 	"strconv"
 )
 
@@ -30,8 +31,8 @@ func PsBruteScan() []int {
 	pidlst := make([]int, 0, len(proc_files))
 
 	for pid := 1; pid < maxpid; pid++ {
-		// if slices.Contains(proc_files, pid){
-		if _, exists := proc_files[pid]; exists {
+		// if _, exists := proc_files[pid]; exists {
+		if slices.Contains(proc_files, pid) {
 			continue
 		}
 		statfile := "/proc/" + strconv.Itoa(pid) + "/stat"

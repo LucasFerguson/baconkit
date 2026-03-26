@@ -2,6 +2,7 @@ package main
 
 import (
 	"baconkit/scans"
+	"baconkit/tools"
 	"fmt"
 	"log"
 	"os"
@@ -173,10 +174,14 @@ func (m *model) resizeTable() {
 	m.table.SetHeight(tableH)
 }
 
-func scanToRows(scanOut map[int]map[string]string) []table.Row {
+func makeRows() []table.Row {
+
+	pidlst := scans.LoadProcesses()
+
 	var rows []table.Row
-	for pid, procDetails := range scanOut {
-		rows = append(rows, table.Row{strconv.Itoa(pid), procDetails["Name"], procDetails["User"], procDetails["State"]})
+	for _, pid := range pidlst {
+		pidAttrs := tools.GetBasicStatus(pid)
+		rows = append(rows, table.Row{strconv.Itoa(pid), pidAttrs["Name"], pidAttrs["User"], pidAttrs["State"]})
 	}
 	return rows
 }
@@ -193,7 +198,7 @@ func (m *model) syncSelectedProcess() {
 
 func (m *model) refresh() {
 	cursor := m.table.Cursor()
-	m.fullRows = scanToRows(scans.LoadProcesses())
+	m.fullRows = makeRows()
 	// m.fullRows = scanToRows(ps_scan())
 	m.resizeTable()
 	m.table.SetCursor(cursor)
@@ -312,7 +317,7 @@ func (m model) View() tea.View {
 func main() {
 	initDebugLog()
 	// fmt.Println(scans.PsBruteScan())
-	fullRows := scanToRows(scans.LoadProcesses())
+	fullRows := makeRows()
 	// fullRows := scanToRows(ps_scan())
 	t := table.New(table.WithFocused(true))
 
