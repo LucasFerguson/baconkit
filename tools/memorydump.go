@@ -48,8 +48,6 @@ func scanMemoryDump(pid int, scanner MemScanner) error {
 			return err
 		}
 		memFile.Seek(start, 0)
-		// reader := bufio.NewReader(memFile)
-		// fmt.Println("Should use bytes:", end-start)
 		reader := bufio.NewReader(io.LimitReader(memFile, end-start))
 		err = nil
 		var byteChunk []byte
