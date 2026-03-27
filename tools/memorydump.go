@@ -1,5 +1,13 @@
 package tools
 
+/*
+TODO
+1. Add ways for users to weaken or stricten their IP search (allow for non-writable mem, allow for inline IPs, etc.)
+2. Allow users to view the full string(s) where each IP found comes from
+3. Return ALL IP addr results from a line, not just the first
+4. Allow users to narrow in by focusing in on processes that have IPs mentioned in ss -plunta
+*/
+
 import (
 	"baconkit/util"
 	"bufio"
