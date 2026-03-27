@@ -6,6 +6,8 @@ TODO
 2. Allow users to view the full string(s) where each IP found comes from
 3. Return ALL IP addr results from a line, not just the first
 4. Allow users to narrow in by focusing in on processes that have IPs mentioned in ss -plunta
+5. Allow users to make their own (simple) memory scans?
+6. Allow users to view a single process' fully memory scan (strings or not strings, their choice)
 */
 
 import (
