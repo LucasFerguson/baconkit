@@ -180,9 +180,13 @@ func makeRows() []table.Row {
 
 	var rows []table.Row
 	for _, pid := range pidlst {
+		if pid == os.Getpid() {
+			continue
+		}
 		pidAttrs := tools.GetBasicStatus(pid)
 		rows = append(rows, table.Row{strconv.Itoa(pid), pidAttrs["Name"], pidAttrs["User"], pidAttrs["State"]})
-		// fmt.Println(pid, ":", tools.CheckWorldWriteableDir(pid))
+		// fmt.Println(pidAttrs["Name"], ":", pid, ":", tools.MemoryDumpIP(pid))
+		// time.Sleep(10 * time.Second)
 	}
 	return rows
 }
