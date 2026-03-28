@@ -35,17 +35,14 @@ func GetSyscalls(pid int) map[string]string {
 
 	err := objCmd.Start()
 	if util.ErrHandle(err) {
-		fmt.Println("yeet")
 		return nil
 	}
 	err = grepCmd.Start()
 	if util.ErrHandle(err) {
-		fmt.Println("yeet1")
 		return nil
 	}
 	err = objCmd.Wait()
 	if util.ErrHandle(err) {
-		fmt.Println("yeet2")
 		return nil
 	}
 	pipeWriter.Close()
