@@ -92,3 +92,18 @@ func IsPtraced(pid int) map[string]string {
 		return map[string]string{"PTracer": tracerStatusMap["Name"]}
 	}
 }
+
+func GetParentProcess(pid int) map[string]string {
+	const PARENT_KEY = "Parent"
+	statusMap := getStatusMap(pid)
+	ppid, ppid_exists := statusMap["PPid"]
+	if !ppid_exists {
+		return map[string]string{PARENT_KEY: "None"}
+	}
+	ppid_int, err := strconv.Atoi(ppid)
+	if util.ErrHandle(err) {
+		return map[string]string{PARENT_KEY: "[" + ppid + ":]"}
+	}
+	return map[string]string{PARENT_KEY: "[" + ppid + ":" + getExe(ppid_int) + "]"}
+
+}
